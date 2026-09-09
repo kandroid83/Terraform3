@@ -1,4 +1,4 @@
-Задание 1
+# Задание 1
 Описание
 Изучен проект. Выполнена инициализация Terraform и применен код. Создана группа безопасности.
 
@@ -9,65 +9,96 @@
 
 Создан файл security-group.tf с группой безопасности для web ВМ:
 
-hcl
 resource "yandex_vpc_security_group" "web_sg" {
+
   name        = "web-security-group"
+  
   description = "Security group for web VMs"
+  
   network_id  = yandex_vpc_network.network.id
 
   ingress {
-    protocol       = "TCP"
-    description    = "HTTP"
-    v4_cidr_blocks = ["0.0.0.0/0"]
-    port           = 80
+  
+  protocol       = "TCP"
+    
+  description    = "HTTP"
+    
+  v4_cidr_blocks = ["0.0.0.0/0"]
+    
+  port           = 80
+    
   }
 
   ingress {
-    protocol       = "TCP"
-    description    = "HTTPS"
-    v4_cidr_blocks = ["0.0.0.0/0"]
-    port           = 443
+  
+  protocol       = "TCP"
+    
+  description    = "HTTPS"
+    
+  v4_cidr_blocks = ["0.0.0.0/0"]
+    
+  port           = 443
+    
   }
 
   ingress {
-    protocol       = "TCP"
-    description    = "SSH"
-    v4_cidr_blocks = ["0.0.0.0/0"]
-    port           = 22
+  
+  protocol       = "TCP"
+    
+  description    = "SSH"
+    
+  v4_cidr_blocks = ["0.0.0.0/0"]
+    
+  port           = 22
+    
   }
 
   egress {
-    protocol       = "ANY"
-    description    = "Allow all outgoing"
-    v4_cidr_blocks = ["0.0.0.0/0"]
+  
+  protocol       = "ANY"
+    
+  description    = "Allow all outgoing"
+    
+  v4_cidr_blocks = ["0.0.0.0/0"]
+    
   }
+  
 }
+
 Создана сеть и подсеть:
 
-hcl
 resource "yandex_vpc_network" "network" {
+
   name = "netology-network-03"
+  
 }
 
 resource "yandex_vpc_subnet" "subnet" {
+
   name           = "netology-subnet-03"
+  
   zone           = "ru-central1-a"
+  
   network_id     = yandex_vpc_network.network.id
+  
   v4_cidr_blocks = ["10.0.0.0/24"]
+  
 }
+
 Выполнена инициализация и применение:
 
-bash
 terraform init
+
 terraform apply -auto-approve
+
 Скриншот
 Скриншот 1: Входящие правила группы безопасности в ЛК Yandex Cloud
 
-https://screenshots/security-group-rules.png
+![Terrafor](Terraform.png)
 
 На скриншоте видны входящие правила: HTTP (порт 80), HTTPS (порт 443), SSH (порт 22) с разрешением от 0.0.0.0/0.
 
-Задание 2
+# Задание 2
 Описание
 Созданы 4 ВМ с использованием мета-аргументов count и for_each. Web ВМ используют группу безопасности из Задания 1. SSH-ключ считывается из файла через функцию file в local-переменной.
 
@@ -187,7 +218,7 @@ web-1 (2 vCPU, 1 GB RAM)
 
 web-2 (2 vCPU, 1 GB RAM)
 
-Задание 3
+# Задание 3
 Описание
 Созданы 3 диска по 1 ГБ с использованием count. Создана ВМ storage с подключением всех 3 дисков через dynamic secondary_disk с for_each.
 
@@ -249,7 +280,7 @@ https://screenshots/storage-disks.png
 
 На скриншоте видна ВМ storage и три дополнительных диска: storage-disk-1, storage-disk-2, storage-disk-3.
 
-Задание 4
+# Задание 4
 Описание
 Создан inventory-файл для Ansible с помощью функции templatefile. Инвентарь содержит 3 группы: webservers, databases, storage. Добавлена переменная fqdn.
 
