@@ -91,48 +91,67 @@ terraform init
 
 terraform apply -auto-approve
 
-Скриншот
-Скриншот 1: Входящие правила группы безопасности в ЛК Yandex Cloud
-
-![Terrafor](Terraform.png)
+![Terraform-YC2-1](Terraform-YC2-1.png)
 
 На скриншоте видны входящие правила: HTTP (порт 80), HTTPS (порт 443), SSH (порт 22) с разрешением от 0.0.0.0/0.
 
 # Задание 2
-Описание
-Созданы 4 ВМ с использованием мета-аргументов count и for_each. Web ВМ используют группу безопасности из Задания 1. SSH-ключ считывается из файла через функцию file в local-переменной.
 
 Выполненные шаги
 1. Чтение SSH-ключа в locals.tf:
 
-hcl
+
 locals {
-  ssh_public_key = file("~/.ssh/id_rsa.pub")
+
+ssh_public_key = file("~/.ssh/id_rsa.pub")
+
 }
+
 2. Создание ВМ баз данных через for_each (for_each-vm.tf):
 
-hcl
+
 variable "each_vm" {
+
   type = list(object({
-    vm_name     = string
-    cpu         = number
-    ram         = number
-    disk_volume = number
+  
+  vm_name     = string
+    
+  cpu         = number
+    
+  ram         = number
+    
+  disk_volume = number
+    
   }))
+  
   default = [
-    {
-      vm_name     = "main"
-      cpu         = 2
-      ram         = 4
-      disk_volume = 20
-    },
-    {
-      vm_name     = "replica"
-      cpu         = 2
-      ram         = 2
-      disk_volume = 10
-    }
-  ]
+
+ {
+    
+  vm_name     = "main"
+      
+  cpu         = 2
+      
+  ram         = 4
+      
+  disk_volume = 20
+      
+  },
+    
+   {
+    
+  vm_name     = "replica"
+      
+  cpu         = 2
+      
+  ram         = 2
+      
+ disk_volume = 10
+      
+ }
+    
+]
+  
 }
 
 resource "yandex_compute_instance" "db" {
@@ -219,123 +238,174 @@ web-1 (2 vCPU, 1 GB RAM)
 web-2 (2 vCPU, 1 GB RAM)
 
 # Задание 3
-Описание
-Созданы 3 диска по 1 ГБ с использованием count. Создана ВМ storage с подключением всех 3 дисков через dynamic secondary_disk с for_each.
 
-Выполненные шаги
 Файл disk_vm.tf:
 
-hcl
-# Создание 3 дисков
+
+ Создание 3 дисков
+ 
 resource "yandex_compute_disk" "storage_disk" {
+
   count = 3
   
   name     = "storage-disk-${count.index + 1}"
   type     = "network-hdd"
+  
   size     = 1
+  
   zone     = "ru-central1-a"
 }
 
-# Создание ВМ storage
+
+Создание ВМ storage
+
 resource "yandex_compute_instance" "storage" {
-  name        = "storage"
-  platform_id = "standard-v1"
+
+name        = "storage"
   
-  resources {
-    cores  = 2
-    memory = 2
+platform_id = "standard-v1"
+  
+resources {
+  
+cores  = 2
+    
+memory = 2
+    
+}
+  
+boot_disk {
+  
+initialize_params {
+    
+image_id = "fd8d6s0blceqbto92ss8"
+      
+size     = 10
+}
+    
+}
+  
+network_interface {
+
+subnet_id = yandex_vpc_subnet.subnet.id
+
+nat       = true
+
   }
   
-  boot_disk {
-    initialize_params {
-      image_id = "fd8d6s0blceqbto92ss8"
-      size     = 10
-    }
-  }
+dynamic "secondary_disk" {
   
-  network_interface {
-    subnet_id = yandex_vpc_subnet.subnet.id
-    nat       = true
-  }
-  
-  dynamic "secondary_disk" {
-    for_each = yandex_compute_disk.storage_disk[*].id
-    content {
-      disk_id = secondary_disk.value
-    }
-  }
+for_each = yandex_compute_disk.storage_disk[*].id
+    
+content {
+    
+disk_id = secondary_disk.value
+      
+}
+    
+}
   
   metadata = {
-    ssh-keys = "ubuntu:${local.ssh_public_key}"
+  
+  ssh-keys = "ubuntu:${local.ssh_public_key}"
+  
   }
   
   scheduling_policy {
-    preemptible = true
+  
+  preemptible = true
+  
   }
+  
 }
-Скриншот
-Скриншот 2: ВМ storage с тремя подключенными дисками
 
-https://screenshots/storage-disks.png
+![Terraform-YC2-3](Terraform-YC2-3.png)
 
 На скриншоте видна ВМ storage и три дополнительных диска: storage-disk-1, storage-disk-2, storage-disk-3.
 
 # Задание 4
-Описание
-Создан inventory-файл для Ansible с помощью функции templatefile. Инвентарь содержит 3 группы: webservers, databases, storage. Добавлена переменная fqdn.
 
-Выполненные шаги
 1. Файл-шаблон inventory.tpl:
 
-jinja
 [webservers]
+
 %{ for vm in web_vms ~}
+
 ${vm.name} ansible_host=${vm.external_ip} fqdn=${vm.fqdn}
+
 %{ endfor ~}
 
 [databases]
+
 %{ for vm in db_vms ~}
+
 ${vm.name} ansible_host=${vm.external_ip} fqdn=${vm.fqdn}
+
 %{ endfor ~}
 
 [storage]
+
 ${storage_vm.name} ansible_host=${storage_vm.external_ip} fqdn=${storage_vm.fqdn}
+
 2. Файл ansible.tf:
 
-hcl
+
 locals {
-  inventory = templatefile("${path.module}/inventory.tpl", {
-    web_vms = [
-      for i, vm in yandex_compute_instance.web : {
-        name        = vm.name
-        external_ip = vm.network_interface[0].nat_ip_address
-        fqdn        = vm.fqdn
-      }
-    ]
-    db_vms = [
-      for name, vm in yandex_compute_instance.db : {
-        name        = name
-        external_ip = vm.network_interface[0].nat_ip_address
-        fqdn        = vm.fqdn
-      }
-    ]
-    storage_vm = {
-      name        = yandex_compute_instance.storage.name
-      external_ip = yandex_compute_instance.storage.network_interface[0].nat_ip_address
-      fqdn        = yandex_compute_instance.storage.fqdn
-    }
-  })
+
+inventory = templatefile("${path.module}/inventory.tpl", {
+
+web_vms = [
+    
+for i, vm in yandex_compute_instance.web : {
+      
+name        = vm.name
+        
+external_ip = vm.network_interface[0].nat_ip_address
+        
+fqdn        = vm.fqdn
+        
+}
+      
+]
+
+db_vms = [
+
+for name, vm in yandex_compute_instance.db : {
+      
+name        = name
+        
+external_ip = vm.network_interface[0].nat_ip_address
+        
+fqdn        = vm.fqdn
+        
+}
+      
+]
+    
+storage_vm = {
+  
+name        = yandex_compute_instance.storage.name
+      
+external_ip = yandex_compute_instance.storage.network_interface[0].nat_ip_address
+      
+fqdn        = yandex_compute_instance.storage.fqdn
+  
+  }
+    
+})
+  
 }
 
 resource "local_file" "inventory" {
-  filename = "${path.module}/inventory.ini"
-  content  = local.inventory
+
+filename = "${path.module}/inventory.ini"
+  
+content  = local.inventory
+
 }
+
 3. Применены изменения и создан файл inventory.ini.
 
-Скриншот
-Скриншот 3: Файл inventory.ini
 
-https://screenshots/inventory-file.png
+![Terraform-YC2-4](Terraform-YC2-4.png)
 
 На скриншоте видны группы webservers (web-1, web-2), databases (main, replica), storage (storage) с указанием ansible_host и fqdn.
